@@ -1,0 +1,35 @@
+{
+  "architectural": {
+    "wall_modules": [
+      { "id": "wall_std_3m", "name": "Standard Wall Panel 3m", "width": 1.0, "height": 3.0, "thickness": 0.25, "material": "Concrete", "cost_usd": 85 },
+      { "id": "wall_wood_3m", "name": "Satin Wood Finish Wall Panel", "width": 1.0, "height": 3.0, "thickness": 0.25, "material": "Wood", "cost_usd": 140 }
+    ],
+    "doors": [
+      { "id": "door_wood_std", "name": "Premium Flush Timber Entry Door", "width": 1.6, "height": 2.2, "thickness": 0.1, "material": "Wood", "cost_usd": 250 },
+      { "id": "door_steel_roller", "name": "Industrial Automatic Roller Shutter", "width": 3.8, "height": 2.4, "thickness": 0.1, "material": "Steel", "cost_usd": 850 }
+    ],
+    "windows": [
+      { "id": "window_sliding_std", "name": "Double Glazed Sliding Window", "width": 1.2, "height": 1.5, "thickness": 0.08, "material": "Glass", "cost_usd": 180 },
+      { "id": "window_facade_pane", "name": "Refractive Panoramic Glass Pane", "width": 2.4, "height": 1.4, "thickness": 0.08, "material": "Glass", "cost_usd": 420 }
+    ]
+  },
+  "interiors": {
+    "sofas": [
+      { "id": "sofa_leather_luxury", "name": "Luxury Tufted Leather Sofa Set", "width": 1.8, "height": 0.7, "depth": 0.8, "cost_usd": 1200 }
+    ],
+    "kitchen": [
+      { "id": "cabinets_modular_l", "name": "L-Shape Lacquered Kitchen Counters", "width": 2.4, "height": 0.9, "depth": 0.6, "cost_usd": 2800 }
+    ],
+    "beds": [
+      { "id": "bed_king_luxury", "name": "King Bed with Upholstered Headboard", "width": 1.5, "height": 0.8, "depth": 2.0, "cost_usd": 950 }
+    ]
+  },
+  "landscaping": {
+    "trees": [
+      { "id": "tree_oak_mature", "name": "Mature English Oak Tree", "height": 4.5, "spread": 3.0, "cost_usd": 350 }
+    ],
+    "cars": [
+      { "id": "car_ev_sedan", "name": "Premium Electric Sedan Model", "width": 1.8, "height": 0.8, "length": 3.8, "cost_usd": 45000 }
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+credentials.json
+service-account*.json
+
+# Python environments and generated files
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+
+# Build output and runtime data
+.next/
+out/
+dist/
+build/
+coverage/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
