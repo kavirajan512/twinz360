@@ -134,6 +134,9 @@ export default function DashboardPage() {
           <button className={`btn ${activeTab === "feasibility" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("feasibility")}>
             <FileText size={16} /> AI Feasibility Planner
           </button>
+          <button className={`btn ${activeTab === "dataset_planner" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("dataset_planner")}>
+            <Layers size={16} /> AI Dataset Architect
+          </button>
           <button className={`btn ${activeTab === "hrms" ? "btn-primary" : "btn-secondary"}`} onClick={() => setActiveTab("hrms")}>
             <Users size={16} /> HRMS & Attendance
           </button>
@@ -195,6 +198,7 @@ export default function DashboardPage() {
               {activeTab === "reports" && "Report Center"}
               {activeTab === "settings" && "Workspace Settings"}
               {activeTab === "feasibility" && "Feasibility & AI Planning"}
+              {activeTab === "dataset_planner" && "AI Dataset Architect Planner"}
               {activeTab === "equipment" && "Equipment & Fleet Management"}
               {activeTab === "hrms" && "HRMS & Workforce"}
               {activeTab === "safety_ai" && "AI Safety Monitoring"}
@@ -220,6 +224,7 @@ export default function DashboardPage() {
           {activeTab === "reports" && <ReportsDashboard />}
           {activeTab === "settings" && <SettingsView />}
           {activeTab === "feasibility" && <FeasibilityDashboard userId={user?.id || 1} />}
+          {activeTab === "dataset_planner" && <FeasibilityPlanner />}
           {activeTab === "ai-vision" && <AIVisionDashboard onBack={() => setActiveTab("dashboard")} />}
           {activeTab === "equipment" && <EquipmentDashboard />}
           {activeTab === "hrms" && <HRMSDashboard projectId={selectedProject?.id} />}

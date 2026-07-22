@@ -1,15 +1,24 @@
 import json
 import math
 import os
-from groq import Groq
+from groq import Groq as _Groq
 
-# Initialize Groq client
-# We will use the fast llama3-70b-8192 model for town planning logic
-client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+# Lazy Groq client - never initialized at module level to avoid import hangs
+_client = None
+def _get_groq_client():
+    global _client
+    if _client is None:
+        key = os.environ.get("GROQ_API_KEY", "")
+        if key:
+            _client = _Groq(api_key=key)
+        else:
+            _client = None
+    return _client
 
 def call_groq_planner(req, actual_footprint, max_floors_allowed):
     """Uses Groq LLM to evaluate feasibility and parse architectural directives from natural language."""
-    if not client.api_key:
+    client = _get_groq_client()
+    if not client or not client.api_key:
         return None
         
     prompt_text = (req.ai_prompt or "").strip()
@@ -302,8 +311,50 @@ def analyze_feasibility(req):
         "material_override": material_pref
     }
 
+    # Compute feasibility score and metrics for frontend radar chart
+    land_score = 95 if buildable_L > 5 and buildable_W > 5 else 60
+    soil_score = 90 if soil not in ["Soft Clay", "Loose Sand"] else 65
+    budget_score = 90 if "Custom" not in str(budget_limit) else 80
+    regulation_score = 95 if floors <= max_floors_allowed else 70
+    env_score = 85 if has_solar else 70
+    utility_score = 85
+    accessibility_score = 95 if road_w >= 10 else 80
+    feasibility_score = round((land_score + soil_score + budget_score + regulation_score + env_score + utility_score + accessibility_score) / 7)
+
+    feasibility_metrics = [
+        {"subject": "Land", "score": land_score},
+        {"subject": "Soil", "score": soil_score},
+        {"subject": "Budget", "score": budget_score},
+        {"subject": "Regulations", "score": regulation_score},
+        {"subject": "Environment", "score": env_score},
+        {"subject": "Utilities", "score": utility_score},
+        {"subject": "Accessibility", "score": accessibility_score},
+    ]
+
+    risks = []
+    if soil in ["Soft Clay", "Loose Sand"]:
+        risks.append({"category": "Soil Risk", "risk": "High settlement risk", "mitigation": "Use continuous pile foundation and soil stabilization."})
+    else:
+        risks.append({"category": "Soil Risk", "risk": "Low risk", "mitigation": "Standard raft foundation suitable for soil profile."})
+    risks.append({"category": "Budget Risk", "risk": "Medium risk", "mitigation": "Establish fixed-price vendor contracts."})
+    if floors > max_floors_allowed:
+        risks.append({"category": "Schedule Risk", "risk": "Concrete cure delays", "mitigation": "Use quick-setting admixtures for columns and slabs."})
+    else:
+        risks.append({"category": "Schedule Risk", "risk": "Low risk", "mitigation": "Standard construction timeline."})
+    risks.append({"category": "Regulatory Risk", "risk": "FSI deviation check required" if floors > max_floors_allowed else "Low risk", "mitigation": "Obtain local authority setback clearances."})
+
+    sustainability = {
+        "carbon_footprint": f"{round(actual_footprint * floors * 0.35)} Tons CO2",
+        "energy_saving": "Estimated 40% reduction in utility load" if has_solar else "No baseline solar offset",
+        "solar_potential": f"{floors * 3.5} kWp generated daily" if has_solar else "8.5 kWp possible on roof",
+        "rainwater_harvesting": "5,000 Liters storage tank recommendation",
+        "leed_readiness": "Gold Certified (Ready)" if feasibility_score >= 80 else "Silver Certified (Recommended upgrades)"
+    }
+
     return {
         "is_possible": is_possible,
+        "feasibility_score": feasibility_score,
+        "feasibility_metrics": feasibility_metrics,
         "reason": reason,
         "suggestions_json": json.dumps(suggestions),
         "worker_estimate_json": json.dumps(workers),
@@ -317,5 +368,8 @@ def analyze_feasibility(req):
         "boq_json": json.dumps(boq),
         "timeline_json": json.dumps(timeline),
         "cost_breakdown_json": json.dumps(costs),
-        "directives_json": json.dumps(directives_applied)
+        "directives_json": json.dumps(directives_applied),
+        # Extra datasets for frontend result view
+        "risks": risks,
+        "sustainability": sustainability,
     }

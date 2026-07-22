@@ -14,5 +14,14 @@ services:
       - mysql_data:/var/lib/mysql
     restart: unless-stopped
 
+  ai_trellis_3d:
+    build: ./ai/trellis_3d
+    container_name: aerotwin_ai_3d
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./frontend/public/storage/glb:/app/storage/glb
+    restart: unless-stopped
+
 volumes:
   mysql_data:

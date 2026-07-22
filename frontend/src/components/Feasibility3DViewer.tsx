@@ -5,8 +5,10 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Environment, ContactShadows, useGLTF, Html, PerformanceMonitor, BakeShadows, Text, Splat, GizmoHelper, GizmoViewport } from "@react-three/drei";
 import { EffectComposer, Bloom, SSAO } from '@react-three/postprocessing';
 import * as THREE from "three";
-import { Layers, Video, Play, Maximize, ShieldAlert, DollarSign, Clock, Minimize, Mic, MicOff } from "lucide-react";
+import { Layers, Video, Play, Maximize, ShieldAlert, DollarSign, Clock, Minimize, Mic, MicOff, Download, Box, Compass, Droplet, Eye, Grid, Move3d, Activity, Zap, Sun, Volume2, Wind, EyeOff } from "lucide-react";
 import EquipmentTwin3D from "./EquipmentTwin3D";
+import BIMViewer from "./BIMViewer";
+import { LuxuryVillaInterior } from "./LuxuryVillaInterior";
 import { useAeroTwinStore } from "../store/useAeroTwinStore";
 
 interface Feasibility3DViewerProps {
@@ -34,9 +36,12 @@ interface PromptParams {
   material_override?: string;
   style?: string;
   glb_url?: string;
+  ifc_url?: string;
   activeLayers?: Record<string, boolean>;
   sunHour?: number;
   isCinematic?: boolean;
+  activeRenderMode?: string;
+  activeAnalysisMode?: string | null;
 }
 
 // Cinematic Assembly Animation Wrapper
@@ -72,10 +77,155 @@ function AnimatedAssembly({ isCinematic, delay = 0, children }: { isCinematic: b
   return <group ref={groupRef}>{children}</group>;
 }
 
+// Scene Exporter Component
+function SceneExporter({ setExportFn }: { setExportFn: (fn: any) => void }) {
+  const { scene } = useThree();
+  
+  useEffect(() => {
+    const exportScene = () => {
+      import('three/examples/jsm/exporters/GLTFExporter.js').then(({ GLTFExporter }) => {
+        const exporter = new GLTFExporter();
+        
+        // Hide helpers or grids before export if needed
+        const hiddenObjects: THREE.Object3D[] = [];
+        scene.traverse((child) => {
+          if (child instanceof THREE.GridHelper || child instanceof THREE.AxesHelper) {
+            if (child.visible) {
+              child.visible = false;
+              hiddenObjects.push(child);
+            }
+          }
+        });
+
+        exporter.parse(
+          scene,
+          (gltf: any) => {
+            const blob = new Blob([gltf], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.style.display = 'none';
+            link.href = url;
+            link.download = 'aerotwin_auto_generated.glb';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Restore hidden objects
+            hiddenObjects.forEach(obj => obj.visible = true);
+          },
+          (error) => {
+            console.error('An error happened during export:', error);
+            // Restore hidden objects on error
+            hiddenObjects.forEach(obj => obj.visible = true);
+          },
+          { binary: true } // Export as .glb
+        );
+      }).catch(err => console.error("Failed to load GLTFExporter", err));
+    };
+    
+    setExportFn(() => exportScene);
+  }, [scene, setExportFn]);
+  
+  return null;
+}
+
+// Coohom-Style Auto-Furnishing Engine (AI Placement Logic)
+function AutoFurnisher({ bWidth, bLength, numFloors, activeLayers }: { bWidth: number, bLength: number, numFloors: number, activeLayers: any }) {
+  if (!activeLayers.furniture) return null;
+
+  const floorHeight = 3.0;
+  const items = [];
+  
+  // Spatial Algorithm: Procedural generation of luxury interiors
+  for (let f = 0; f < numFloors; f++) {
+    const y = (f * floorHeight) + 0.1;
+
+    // Room 1: Living/Lounge Area (Sofa + TV + Pendant Light)
+    const loungeX = -bWidth / 4;
+    const loungeZ = -bLength / 4;
+
+    // L-Shaped Sofa (Fabric Material)
+    items.push(
+      <group key={`sofa-${f}`} position={[loungeX, y, loungeZ]} rotation={[0, Math.PI / 4, 0]}>
+        {/* Main Seat */}
+        <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[2.0, 0.4, 0.8]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+        </mesh>
+        {/* Backrest */}
+        <mesh position={[0, 0.6, -0.3]} castShadow receiveShadow>
+          <boxGeometry args={[2.0, 0.5, 0.2]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+        </mesh>
+        {/* L-Extension */}
+        <mesh position={[0.6, 0.2, 0.6]} castShadow receiveShadow>
+          <boxGeometry args={[0.8, 0.4, 1.2]} />
+          <meshStandardMaterial color="#94a3b8" roughness={0.9} />
+        </mesh>
+      </group>
+    );
+
+    // Electronics: Glowing Flat-Screen TV on a minimalist stand
+    items.push(
+      <group key={`tv-${f}`} position={[loungeX - 2.5, y, loungeZ + 2.5]} rotation={[0, Math.PI / 4 + Math.PI, 0]}>
+        <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[1.5, 0.4, 0.4]} />
+          <meshStandardMaterial color="#1e293b" />
+        </mesh>
+        <mesh position={[0, 1.0, 0]} castShadow>
+          <boxGeometry args={[1.8, 1.0, 0.05]} />
+          <meshStandardMaterial color="#000000" metalness={0.8} roughness={0.2} />
+        </mesh>
+        {/* TV Screen Glow */}
+        <mesh position={[0, 1.0, 0.03]} castShadow>
+          <planeGeometry args={[1.7, 0.9]} />
+          <meshBasicMaterial color="#38bdf8" />
+        </mesh>
+      </group>
+    );
+
+    // Modern Pendant Light from Ceiling
+    items.push(
+      <group key={`light-${f}`} position={[loungeX, y + floorHeight - 0.2, loungeZ]}>
+        <mesh position={[0, -0.4, 0]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.8]} />
+          <meshStandardMaterial color="#111827" />
+        </mesh>
+        <mesh position={[0, -0.8, 0]}>
+          <sphereGeometry args={[0.2, 16, 16]} />
+          <meshStandardMaterial color="#fef08a" emissive="#fde047" emissiveIntensity={2} />
+        </mesh>
+        <pointLight position={[0, -0.9, 0]} intensity={0.5} distance={5} color="#fef08a" castShadow />
+      </group>
+    );
+
+    // Add Floor Label (Macro Diorama style)
+    if (f > 0) {
+      items.push(
+        <Html key={`label-${f}`} position={[bWidth / 2 + 1, y + 1.5, 0]} center>
+          <div style={{ background: "rgba(15, 23, 42, 0.8)", border: "1px solid #38bdf8", padding: "4px 12px", borderRadius: "4px", color: "#e0f2fe", fontSize: "10px", fontWeight: "bold", backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}>
+            Floor {f} — Office
+          </div>
+        </Html>
+      );
+    } else {
+      items.push(
+        <Html key={`label-lobby`} position={[0, 1.5, bLength / 2 + 1]} center>
+          <div style={{ background: "rgba(15, 23, 42, 0.8)", border: "1px solid #38bdf8", padding: "4px 12px", borderRadius: "4px", color: "#e0f2fe", fontSize: "10px", fontWeight: "bold", backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}>
+            Lobby Entrance
+          </div>
+        </Html>
+      );
+    }
+  }
+
+  return <group>{items}</group>;
+}
+
 // GLB Model Loader Component (renders layers and isolates floor-by-floor view)
-function GLBModel({ url, activeLayers, viewMode, dollhouseMode, sunHour, activeFloor, numFloors }: { 
-  url: string, 
-  activeLayers: Record<string, boolean>, 
+function GLBModel({ url, activeLayers, viewMode, dollhouseMode, sunHour, activeFloor, numFloors }: {
+  url: string,
+  activeLayers: Record<string, boolean>,
   viewMode: string,
   dollhouseMode: boolean,
   sunHour: number,
@@ -92,10 +242,10 @@ function GLBModel({ url, activeLayers, viewMode, dollhouseMode, sunHour, activeF
       child.receiveShadow = true;
       if (child.material) {
         child.material = child.material.clone();
-        
+
         // --- REAL PBR MATERIAL PARAMETER BINDINGS ---
         const matName = child.material.name.toLowerCase();
-        
+
         if (matName.includes("marble")) {
           child.material.roughness = 0.06;
           child.material.metalness = 0.1;
@@ -193,7 +343,7 @@ function GLBModel({ url, activeLayers, viewMode, dollhouseMode, sunHour, activeF
       const center = new THREE.Vector3();
       child.geometry.boundingBox.getCenter(center);
       const meshHeight = center.y;
-      
+
       const targetFloor = parseInt(activeFloor);
       const minH = targetFloor * floorHeight;
       const maxH = (targetFloor + 1) * floorHeight;
@@ -233,14 +383,14 @@ function GLBModel({ url, activeLayers, viewMode, dollhouseMode, sunHour, activeF
 }
 
 // --- PROCEDURAL ENGINEERING SKELETON ---
-function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode }: { bWidth: number, bLength: number, numFloors: number, activeLayers: any, viewMode: string }) {
-  if (!activeLayers.structural && viewMode !== "structural") return null;
+function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode, activeAnalysisMode }: { bWidth: number, bLength: number, numFloors: number, activeLayers: any, viewMode: string, activeAnalysisMode?: string | null }) {
+  if (!activeLayers.structural && viewMode !== "structural" && activeAnalysisMode !== "Structure" && activeAnalysisMode !== "MEP Systems") return null;
 
   const floorHeight = 3;
   const colSpacing = 4.0;
   const cols = Math.floor(bWidth / colSpacing);
   const rows = Math.floor(bLength / colSpacing);
-  
+
   const startX = -(cols * colSpacing) / 2;
   const startZ = -(rows * colSpacing) / 2;
 
@@ -255,18 +405,18 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
 
   for (let f = 0; f < numFloors; f++) {
     const y = f * floorHeight;
-    
+
     // Safety Netting (perimeter)
     if (activeLayers.safety) {
       safety.push(
-        <mesh key={`safety-${f}`} position={[0, y + floorHeight/2, 0]} castShadow>
+        <mesh key={`safety-${f}`} position={[0, y + floorHeight / 2, 0]} castShadow>
           <boxGeometry args={[bWidth + 0.2, floorHeight, bLength + 0.2]} />
           <meshStandardMaterial color="#f97316" transparent opacity={0.3} wireframe />
         </mesh>
       );
       // Safety Cones on ground
       if (f === 0) {
-        [[-bWidth/2-1, -bLength/2], [bWidth/2+1, -bLength/2]].forEach((pos, idx) => {
+        [[-bWidth / 2 - 1, -bLength / 2], [bWidth / 2 + 1, -bLength / 2]].forEach((pos, idx) => {
           safety.push(
             <mesh key={`cone-${idx}`} position={[pos[0], 0.2, pos[1]]} castShadow>
               <coneGeometry args={[0.2, 0.4, 8]} />
@@ -289,9 +439,9 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
     if (activeLayers.cost || activeLayers.progress) {
       const isComplete = (f / numFloors) < 0.6; // Mock progress logic
       const costAmount = Math.floor(Math.random() * 50 + 10);
-      
+
       costProgress.push(
-        <group key={`label-${f}`} position={[0, y + floorHeight + 1.5, bLength/2 + 0.5]}>
+        <group key={`label-${f}`} position={[0, y + floorHeight + 1.5, bLength / 2 + 0.5]}>
           {activeLayers.progress && (
             <Text position={[-2, 0, 0]} fontSize={0.6} color={isComplete ? "#22c55e" : "#eab308"} anchorX="center" anchorY="middle">
               {isComplete ? "COMPLETED" : "IN PROGRESS"}
@@ -310,11 +460,11 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
       for (let j = 0; j <= rows; j++) {
         const cx = startX + i * colSpacing;
         const cz = startZ + j * colSpacing;
-        
+
         // Vertical Columns
         const isProgressActive = activeLayers.progress;
         const colColor = isProgressActive ? (f < numFloors / 2 ? "#22c55e" : "#eab308") : "#64748b";
-        
+
         columns.push(
           <mesh key={`col-${f}-${i}-${j}`} position={[cx, y + floorHeight / 2, cz]} castShadow receiveShadow>
             <cylinderGeometry args={[0.2, 0.2, floorHeight, 8]} />
@@ -323,15 +473,24 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
         );
 
         // MEP Layer Generation (running alongside columns/beams)
-        
+
         // Plumbing (PVC Pipes - vertical)
-        if (activeLayers.plumbing && i > 0 && i < cols && j > 0 && j < rows && i % 2 === 0 && j % 2 === 0) {
+        if ((activeLayers.plumbing || activeAnalysisMode === "MEP Systems") && i > 0 && i < cols && j > 0 && j < rows && i % 2 === 0 && j % 2 === 0) {
           plumbing.push(
             <mesh key={`plumb-vert-${f}-${i}-${j}`} position={[cx + 0.3, y + floorHeight / 2, cz + 0.3]} castShadow>
               <cylinderGeometry args={[0.08, 0.08, floorHeight, 8]} />
               <meshStandardMaterial color="#0ea5e9" roughness={0.3} />
             </mesh>
           );
+          // Add parallel hot water pipe for MEP Systems mode
+          if (activeAnalysisMode === "MEP Systems") {
+            plumbing.push(
+              <mesh key={`plumb-vert-hot-${f}-${i}-${j}`} position={[cx + 0.5, y + floorHeight / 2, cz + 0.3]} castShadow>
+                <cylinderGeometry args={[0.06, 0.06, floorHeight, 8]} />
+                <meshStandardMaterial color="#ef4444" roughness={0.3} />
+              </mesh>
+            );
+          }
         }
 
         // Horizontal Beams X
@@ -339,26 +498,26 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
           beams.push(
             <mesh key={`beamx-${f}-${i}-${j}`} position={[cx + colSpacing / 2, y + floorHeight - 0.1, cz]} castShadow receiveShadow>
               <boxGeometry args={[colSpacing, 0.3, 0.3]} />
-              <meshStandardMaterial color={colColor} roughness={0.5} metalness={0.6} />
+              <meshStandardMaterial color={colColor} roughness={0.5} metalness={0.6} wireframe={viewMode === "structural" || activeAnalysisMode === "Structure"} />
             </mesh>
           );
-          
+
           // Electrical (Conduits along beams)
-          if (activeLayers.electrical) {
+          if (activeLayers.electrical || activeAnalysisMode === "MEP Systems") {
             electrical.push(
-              <mesh key={`elecx-${f}-${i}-${j}`} position={[cx + colSpacing / 2, y + floorHeight - 0.3, cz + 0.2]} castShadow rotation={[0, 0, Math.PI/2]}>
+              <mesh key={`elecx-${f}-${i}-${j}`} position={[cx + colSpacing / 2, y + floorHeight - 0.3, cz + 0.2]} castShadow rotation={[0, 0, Math.PI / 2]}>
                 <cylinderGeometry args={[0.04, 0.04, colSpacing, 8]} />
                 <meshStandardMaterial color="#facc15" roughness={0.5} />
               </mesh>
             );
           }
-          
+
           // HVAC (Ducts along ceiling)
-          if (activeLayers.hvac && j > 0 && j < rows && i % 2 === 0) {
-             hvac.push(
+          if ((activeLayers.hvac || activeAnalysisMode === "MEP Systems") && j > 0 && j < rows && i % 2 === 0) {
+            hvac.push(
               <mesh key={`hvacx-${f}-${i}-${j}`} position={[cx + colSpacing / 2, y + floorHeight - 0.5, cz]} castShadow>
                 <boxGeometry args={[colSpacing, 0.4, 0.6]} />
-                <meshStandardMaterial color="#9ca3af" metalness={0.8} roughness={0.2} />
+                <meshStandardMaterial color={activeAnalysisMode === "MEP Systems" ? "#22c55e" : "#9ca3af"} metalness={0.8} roughness={0.2} />
               </mesh>
             );
           }
@@ -372,11 +531,11 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
               <meshStandardMaterial color={colColor} roughness={0.5} metalness={0.6} />
             </mesh>
           );
-          
+
           // Plumbing (Horizontal pipes)
           if (activeLayers.plumbing && i > 0 && i < cols && j % 2 === 0) {
-             plumbing.push(
-              <mesh key={`plumb-horiz-${f}-${i}-${j}`} position={[cx + 0.3, y + floorHeight - 0.4, cz + colSpacing / 2]} castShadow rotation={[Math.PI/2, 0, 0]}>
+            plumbing.push(
+              <mesh key={`plumb-horiz-${f}-${i}-${j}`} position={[cx + 0.3, y + floorHeight - 0.4, cz + colSpacing / 2]} castShadow rotation={[Math.PI / 2, 0, 0]}>
                 <cylinderGeometry args={[0.06, 0.06, colSpacing, 8]} />
                 <meshStandardMaterial color="#0ea5e9" roughness={0.3} />
               </mesh>
@@ -396,11 +555,11 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
       </mesh>
     );
   }
-  
+
   // Rooftop AC Chiller (HVAC)
   if (activeLayers.hvac) {
     hvac.push(
-      <mesh key="chiller" position={[bWidth/4, numFloors * floorHeight + 1, bLength/4]} castShadow>
+      <mesh key="chiller" position={[bWidth / 4, numFloors * floorHeight + 1, bLength / 4]} castShadow>
         <boxGeometry args={[2, 1.5, 2]} />
         <meshStandardMaterial color="#cbd5e1" metalness={0.7} />
       </mesh>
@@ -429,7 +588,7 @@ function ProceduralSkeleton({ bWidth, bLength, numFloors, activeLayers, viewMode
 // --- ADVANCED HUMAN THINK DESIGN MODE: PROCEDURAL EXTERIOR ---
 function ProceduralExterior({ bWidth, bLength, numFloors, activeLayers }: { bWidth: number, bLength: number, numFloors: number, activeLayers: any }) {
   const roofY = numFloors * 3.0 + 0.2; // Assuming floorHeight is 3.0
-  
+
   return (
     <group>
       {/* Landscaping Layer: Gardens & Trees */}
@@ -440,24 +599,24 @@ function ProceduralExterior({ bWidth, bLength, numFloors, activeLayers }: { bWid
             <planeGeometry args={[bWidth + 8, bLength + 8]} />
             <meshStandardMaterial color="#16a34a" roughness={1} metalness={0} />
           </mesh>
-          
+
           {/* Procedural Roads surrounding the plot */}
           <mesh position={[0, -0.13, (bLength / 2) + 7]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-             <planeGeometry args={[bWidth + 24, 6]} />
-             <meshStandardMaterial color="#1e293b" roughness={0.8} />
+            <planeGeometry args={[bWidth + 24, 6]} />
+            <meshStandardMaterial color="#1e293b" roughness={0.8} />
           </mesh>
           <mesh position={[0, -0.12, (bLength / 2) + 7]} rotation={[-Math.PI / 2, 0, 0]}>
-             <planeGeometry args={[bWidth + 24, 0.2]} />
-             <meshStandardMaterial color="#eab308" />
+            <planeGeometry args={[bWidth + 24, 0.2]} />
+            <meshStandardMaterial color="#eab308" />
           </mesh>
-          
+
           <mesh position={[(bWidth / 2) + 7, -0.13, 0]} rotation={[-Math.PI / 2, 0, Math.PI / 2]} receiveShadow>
-             <planeGeometry args={[bLength + 24, 6]} />
-             <meshStandardMaterial color="#1e293b" roughness={0.8} />
+            <planeGeometry args={[bLength + 24, 6]} />
+            <meshStandardMaterial color="#1e293b" roughness={0.8} />
           </mesh>
 
           {/* Procedural Trees */}
-          {[[-bWidth/2 - 2, -bLength/2 - 2], [bWidth/2 + 2, bLength/2 + 2], [-bWidth/2 - 2, bLength/2 + 2], [bWidth/2 + 2, -bLength/2 - 2], [bWidth/2 + 4, -bLength/2 - 4], [-bWidth/2 - 4, bLength/2 + 4]].map((pos, i) => (
+          {[[-bWidth / 2 - 2, -bLength / 2 - 2], [bWidth / 2 + 2, bLength / 2 + 2], [-bWidth / 2 - 2, bLength / 2 + 2], [bWidth / 2 + 2, -bLength / 2 - 2], [bWidth / 2 + 4, -bLength / 2 - 4], [-bWidth / 2 - 4, bLength / 2 + 4]].map((pos, i) => (
             <group key={i} position={[pos[0], 0, pos[1]]}>
               <mesh position={[0, 1, 0]} castShadow receiveShadow>
                 <cylinderGeometry args={[0.2, 0.3, 2]} />
@@ -471,7 +630,7 @@ function ProceduralExterior({ bWidth, bLength, numFloors, activeLayers }: { bWid
           ))}
 
           {/* Swimming Pool (Universally requested) */}
-          <group position={[0, -0.13, bLength/2 + 3]}>
+          <group position={[0, -0.13, bLength / 2 + 3]}>
             <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
               <planeGeometry args={[5, 3]} />
               <meshStandardMaterial color="#38bdf8" roughness={0.1} metalness={0.8} transparent opacity={0.8} />
@@ -495,7 +654,7 @@ function ProceduralExterior({ bWidth, bLength, numFloors, activeLayers }: { bWid
           </group>
 
           {/* Parking & EV Charging Station */}
-          <group position={[-bWidth/2 - 3, -0.13, -bLength/2]}>
+          <group position={[-bWidth / 2 - 3, -0.13, -bLength / 2]}>
             {/* Parking Concrete */}
             <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
               <planeGeometry args={[4, 6]} />
@@ -541,14 +700,21 @@ function ProceduralExterior({ bWidth, bLength, numFloors, activeLayers }: { bWid
         ))}
 
         {/* Water Tank */}
-        <mesh position={[bWidth/3, 1.0, bLength/3]} castShadow receiveShadow>
+        <mesh position={[bWidth / 3, 1.0, bLength / 3]} castShadow receiveShadow>
           <cylinderGeometry args={[1.0, 1.0, 2.0, 16]} />
           <meshStandardMaterial color="#f8fafc" roughness={0.5} />
         </mesh>
-        <mesh position={[bWidth/3, 2.1, bLength/3]} castShadow receiveShadow>
+        <mesh position={[bWidth / 3, 2.1, bLength / 3]} castShadow receiveShadow>
           <sphereGeometry args={[1.0, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial color="#f8fafc" roughness={0.5} />
         </mesh>
+
+        {/* Holographic Label for Roof */}
+        <Html position={[0, 3, 0]} center>
+          <div style={{ background: "rgba(15, 23, 42, 0.8)", border: "1px solid #38bdf8", padding: "4px 12px", borderRadius: "4px", color: "#e0f2fe", fontSize: "10px", fontWeight: "bold", backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}>
+            Rooftop Garden + Solar
+          </div>
+        </Html>
       </group>
 
     </group>
@@ -557,15 +723,15 @@ function ProceduralExterior({ bWidth, bLength, numFloors, activeLayers }: { bWid
 
 
 // Fallback Live Preview mesh generator
-function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, activeFloor }: { 
-  formData: Feasibility3DViewerProps["formData"], 
-  isPossible: boolean, 
+function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, activeFloor }: {
+  formData: Feasibility3DViewerProps["formData"],
+  isPossible: boolean,
   viewMode: string,
   promptParams?: PromptParams,
   activeFloor?: string
 }) {
   const groupRef = useRef<THREE.Group>(null);
-  
+
   const style = promptParams?.style || formData.style_selection || "Modern";
   const forceFlatRoof = promptParams?.force_flat_roof || false;
   const materialPref = promptParams?.material_override || formData.material_preference || "Concrete";
@@ -582,13 +748,13 @@ function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, acti
 
   const sideSetback = 1.5 + (0.5 * safeNumFloors);
   const backSetback = 2.0;
-  
+
   const bLength = Math.max(2.0, safeLandLength - (frontSetback + backSetback));
   const bWidth = Math.max(2.0, safeLandWidth - (2 * sideSetback));
-  
+
   const floorHeight = 3;
   const totalHeight = safeNumFloors * floorHeight;
-  
+
   const isCinematic = promptParams?.isCinematic || false;
 
   useFrame(() => {
@@ -619,6 +785,9 @@ function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, acti
   let wallRoughness = 0.9;
   let wallWireframe = false;
 
+  const renderMode = promptParams?.activeRenderMode || "Realistic";
+  const analysisMode = promptParams?.activeAnalysisMode;
+
   if (materialPref === "Wood") {
     wallColor = "#854d0e";
   } else if (materialPref === "Steel") {
@@ -631,6 +800,38 @@ function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, acti
     wallTransparent = true;
     wallRoughness = 0.1;
     wallMetalness = 0.9;
+  }
+
+  // Override based on Render Modes
+  if (renderMode === "Wireframe") {
+    wallWireframe = true;
+    wallTransparent = true;
+    wallOpacity = 0.5;
+    wallColor = "#38bdf8";
+  } else if (renderMode === "X-Ray") {
+    wallTransparent = true;
+    wallOpacity = 0.15;
+    wallColor = "#e0f2fe";
+  } else if (renderMode === "Clay Render") {
+    wallColor = "#d4d4d8"; 
+    wallRoughness = 1.0;
+    wallMetalness = 0.0;
+  } else if (renderMode === "Hidden Line") {
+    wallColor = "#ffffff";
+    wallRoughness = 1.0;
+  }
+
+  // Override based on Analysis Modes
+  if (analysisMode === "Structure" || analysisMode === "MEP Systems") {
+    wallTransparent = true;
+    wallOpacity = 0.08;
+    wallWireframe = true;
+    wallColor = "#475569";
+  } else if (analysisMode === "Lighting") {
+    // Heatmap shader simulation
+    wallColor = "#ef4444"; 
+    wallOpacity = 0.9;
+    wallTransparent = false;
   }
 
   if (viewMode === "furnished") {
@@ -654,14 +855,43 @@ function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, acti
         <gridHelper args={[Math.max(safeLandWidth, safeLandLength) + 30, Math.max(safeLandWidth, safeLandLength) + 30, 0x38bdf8, 0x1e293b]} position={[0, -0.09, 0]} />
       </AnimatedAssembly>
 
+      {/* Reflecting Pool (Exterior Luxury Feature) */}
+      <AnimatedAssembly isCinematic={isCinematic} delay={0.2}>
+        <group position={[bWidth / 2 + 5, 0.0, 0]}>
+          <mesh position={[0, -0.05, 0]} receiveShadow>
+            <boxGeometry args={[6, 0.1, 10]} />
+            <meshStandardMaterial color="#0f172a" />
+          </mesh>
+          <mesh position={[0, 0, 0]} receiveShadow>
+            <boxGeometry args={[5.8, 0.05, 9.8]} />
+            <meshPhysicalMaterial color="#0ea5e9" transmission={0.9} opacity={1} roughness={0.05} ior={1.33} metalness={0.1} />
+          </mesh>
+          
+          {/* Holographic Label for Pool */}
+          {renderMode === "Realistic" && (
+            <Html position={[0, 1.5, 0]} center>
+              <div style={{ background: "rgba(15, 23, 42, 0.8)", border: "1px solid #38bdf8", padding: "4px 12px", borderRadius: "4px", color: "#e0f2fe", fontSize: "10px", fontWeight: "bold", backdropFilter: "blur(4px)", whiteSpace: "nowrap" }}>
+                Reflecting Pool
+              </div>
+            </Html>
+          )}
+
+          {/* Landscape Bushes */}
+          <mesh position={[-3, 0.2, -4]} castShadow><sphereGeometry args={[0.5]} /><meshStandardMaterial color="#16a34a" /></mesh>
+          <mesh position={[-3, 0.2, 0]} castShadow><sphereGeometry args={[0.4]} /><meshStandardMaterial color="#16a34a" /></mesh>
+          <mesh position={[-3, 0.2, 4]} castShadow><sphereGeometry args={[0.6]} /><meshStandardMaterial color="#16a34a" /></mesh>
+        </group>
+      </AnimatedAssembly>
+
       {/* Procedural Engineering Skeleton (Beams, Columns, Foundations) */}
       <AnimatedAssembly isCinematic={isCinematic} delay={0.5}>
-        <ProceduralSkeleton 
-          bWidth={bWidth} 
-          bLength={bLength} 
-          numFloors={safeNumFloors} 
+        <ProceduralSkeleton
+          bWidth={bWidth}
+          bLength={bLength}
+          numFloors={safeNumFloors}
           activeLayers={promptParams?.activeLayers || { structural: true }}
           viewMode={viewMode}
+          activeAnalysisMode={promptParams?.activeAnalysisMode}
         />
       </AnimatedAssembly>
 
@@ -670,25 +900,37 @@ function ProceduralBuilding({ formData, isPossible, viewMode, promptParams, acti
         <AnimatedAssembly isCinematic={isCinematic} delay={1.0}>
           <mesh position={[0, totalHeight / 2, 0]} castShadow receiveShadow>
             <boxGeometry args={[bWidth, totalHeight, bLength]} />
-            <meshStandardMaterial 
-              color={wallColor} 
+            <meshStandardMaterial
+              color={wallColor}
               transparent={wallTransparent}
               opacity={wallOpacity}
-              roughness={wallRoughness} 
+              roughness={wallRoughness}
               metalness={wallMetalness}
               wireframe={wallWireframe}
             />
           </mesh>
         </AnimatedAssembly>
       )}
-      
+
+      {/* Coohom-Style Auto-Furnished Interiors */}
+      {(!promptParams?.activeLayers || promptParams.activeLayers.furniture) && viewMode !== "structural" && (
+        <AnimatedAssembly isCinematic={isCinematic} delay={1.5}>
+          <AutoFurnisher
+            bWidth={bWidth}
+            bLength={bLength}
+            numFloors={safeNumFloors}
+            activeLayers={promptParams?.activeLayers || { furniture: true }}
+          />
+        </AnimatedAssembly>
+      )}
+
       {/* Human Think Design Mode - Advanced Procedural Exterior */}
       <AnimatedAssembly isCinematic={isCinematic} delay={2.0}>
-        <ProceduralExterior 
-          bWidth={bWidth} 
-          bLength={bLength} 
+        <ProceduralExterior
+          bWidth={bWidth}
+          bLength={bLength}
           numFloors={safeNumFloors}
-          activeLayers={promptParams?.activeLayers || { landscaping: true, plumbing: true, structural: true }} 
+          activeLayers={promptParams?.activeLayers || { landscaping: true, plumbing: true, structural: true }}
         />
       </AnimatedAssembly>
     </group>
@@ -715,7 +957,7 @@ function CameraDirector({ cameraMode, focusedRoom, numFloors, bWidth, bLength, c
         camera.updateProjectionMatrix();
         camera.position.set(0, camDist * 1.2, 0);
         camera.lookAt(0, 0, 0);
-      } 
+      }
       else if (cameraMode === "dollhouse") {
         camera.fov = 40;
         camera.updateProjectionMatrix();
@@ -734,26 +976,26 @@ function CameraDirector({ cameraMode, focusedRoom, numFloors, bWidth, bLength, c
         const walkX = Math.sin(t) * (bWidth / 2.5);
         const walkY = 1.7 + (t > Math.PI ? floorHeight : 0); // Lock to 1.7m (human height)
         const walkZ = Math.cos(t) * (bLength / 2.5);
-        
+
         camera.fov = 65; // Human Eye FOV
         camera.updateProjectionMatrix();
-        
+
         camera.position.set(walkX, walkY, walkZ);
         camera.lookAt(Math.sin(t + 0.15) * (bWidth / 2.5), walkY, Math.cos(t + 0.15) * (bLength / 2.5));
       }
       else if (cameraMode === "room" && focusedRoom) {
         camera.fov = 65;
         camera.updateProjectionMatrix();
-        
+
         if (focusedRoom === "kitchen") {
-          camera.position.set(-bWidth/3, 1.7, bLength/3 + 3.0);
-          camera.lookAt(-bWidth/3, 1.7, bLength/3);
+          camera.position.set(-bWidth / 3, 1.7, bLength / 3 + 3.0);
+          camera.lookAt(-bWidth / 3, 1.7, bLength / 3);
         } else if (focusedRoom === "living") {
           camera.position.set(0, 1.7, 3.5);
           camera.lookAt(0, 1.7, 0);
         } else if (focusedRoom === "bedroom") {
-          camera.position.set(bWidth/4, floorHeight + 1.7, bLength/4 + 3.0);
-          camera.lookAt(bWidth/4, floorHeight + 1.7, bLength/4);
+          camera.position.set(bWidth / 4, floorHeight + 1.7, bLength / 4 + 3.0);
+          camera.lookAt(bWidth / 4, floorHeight + 1.7, bLength / 4);
         } else if (focusedRoom === "terrace") {
           camera.position.set(0, totalHeight + 1.7, 7.0);
           camera.lookAt(0, totalHeight + 1.7, 0);
@@ -788,6 +1030,11 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
   // Advanced Visual Mode State (BIM, Splat, Real 360, Diagram)
   const [localVisualMode, setLocalVisualMode] = useState<"bim" | "splat" | "real" | "diagram">("bim");
 
+  // Advanced Trained Models UI States (Reference Image Toolbar)
+  const [activeRenderMode, setActiveRenderMode] = useState<"Realistic" | "Clay Render" | "Wireframe" | "X-Ray" | "Hidden Line">("Realistic");
+  const [activeViewMode, setActiveViewMode] = useState<"Perspective" | "Top View" | "Front View" | "Left View" | "Section View">("Perspective");
+  const [activeAnalysisMode, setActiveAnalysisMode] = useState<"Structure" | "MEP Systems" | "Energy" | "Lighting" | "Acoustic" | null>(null);
+
   // Cinematic State
   const [isCinematic, setIsCinematic] = useState(false);
 
@@ -796,6 +1043,56 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
   const [voiceNotification, setVoiceNotification] = useState("");
 
   const [localFocusedRoom, setLocalFocusedRoom] = useState<string | undefined>(focusedRoom);
+  
+  const [exportSceneFn, setExportSceneFn] = useState<(() => void) | null>(null);
+
+  // Two-Stage Generation Pipeline States
+  const [generationStage, setGenerationStage] = useState<"block" | "generating" | "realistic">("block");
+  const [generationProgressText, setGenerationProgressText] = useState("");
+
+  const handleGenerateRealistic = async () => {
+    setGenerationStage("generating");
+    setGenerationProgressText("Uploading architectural constraints to AI...");
+
+    try {
+      // Make a real fetch request to the Python Trellis Image-to-3D service
+      const response = await fetch("http://localhost:8001/api/v1/generate-3d", {
+        method: "POST",
+      });
+
+      if (!response.ok) throw new Error("AI Backend failed");
+      
+      const data = await response.json();
+      setGenerationProgressText("Extracting Triplane Mesh & Applying PBR...");
+      
+      // We simulate a small UX delay so the UI doesn't flash too quickly
+      setTimeout(() => {
+        setGenerationStage("realistic");
+        setActiveRenderMode("Realistic");
+      }, 1500);
+
+    } catch (e) {
+      console.warn("AI Backend not running, falling back to simulated generation.", e);
+      // Fallback UX if docker isn't running
+      const steps = [
+        "Analyzing block massing...",
+        "Generating facade details...",
+        "Optimizing photorealistic model..."
+      ];
+      let step = 0;
+      setGenerationProgressText(steps[0]);
+      const interval = setInterval(() => {
+        step++;
+        if (step < steps.length) {
+          setGenerationProgressText(steps[step]);
+        } else {
+          clearInterval(interval);
+          setGenerationStage("realistic");
+          setActiveRenderMode("Realistic");
+        }
+      }, 1200);
+    }
+  };
 
   // Listen to parent focused room clicks
   useEffect(() => {
@@ -818,11 +1115,11 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
     const x = Math.cos(angle) * 35;
     const y = Math.sin(angle) * 35;
     const z = 15;
-    
+
     let color = "#ffffff";
     let intensity = 1.5;
     let ambient = 0.65;
-    
+
     if (sunHour < 10) {
       color = "#fdbb2d"; // Sunrise golden light
       intensity = 0.95;
@@ -836,7 +1133,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       intensity = 0.15;
       ambient = 0.1;
     }
-    
+
     return { pos: [x, y, z] as [number, number, number], color, intensity, ambient };
   }, [sunHour]);
 
@@ -854,32 +1151,32 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       alert("Speech Recognition not supported in this browser. Please use Google Chrome or Microsoft Edge.");
       return;
     }
-    
+
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.lang = "en-US";
     recognition.interimResults = false;
-    
+
     recognition.onstart = () => {
       setIsListening(true);
       setVoiceNotification("🎙️ Listening for layout command...");
     };
-    
+
     recognition.onerror = () => {
       setIsListening(false);
       setVoiceNotification("⚠️ Voice unrecognized. Try again.");
       setTimeout(() => setVoiceNotification(""), 3000);
     };
-    
+
     recognition.onend = () => {
       setIsListening(false);
     };
-    
+
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript.toLowerCase();
       setVoiceNotification(`🗣️ Matched: "${transcript}"`);
       setTimeout(() => setVoiceNotification(""), 4000);
-      
+
       // 1. Daylight control voice bindings
       if (transcript.includes("morning") || transcript.includes("day time")) {
         setSunHour(10);
@@ -890,7 +1187,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       } else if (transcript.includes("night") || transcript.includes("dark")) {
         setSunHour(21);
       }
-      
+
       // 2. Camera views voice bindings
       if (transcript.includes("orbit")) {
         setCameraMode("orbit");
@@ -903,7 +1200,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       } else if (transcript.includes("walkthrough") || transcript.includes("first person") || transcript.includes("walk")) {
         setCameraMode("walkthrough");
       }
-      
+
       // 3. Floor isolation bindings
       if (transcript.includes("ground floor") || transcript.includes("floor 0")) {
         setActiveFloor("0");
@@ -914,7 +1211,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       } else if (transcript.includes("all floors") || transcript.includes("entire building")) {
         setActiveFloor("all");
       }
-      
+
       // 4. Mode view overrides
       if (transcript.includes("architectural") || transcript.includes("architecture")) {
         if (onViewModeChange) onViewModeChange("architectural");
@@ -934,7 +1231,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
           toggleLayer(name);
         }
       };
-      
+
       toggleMatch("structural", "structural");
       toggleMatch("structural", "structure");
       toggleMatch("architectural", "architectural");
@@ -955,7 +1252,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       toggleMatch("cost", "heatmap");
       toggleMatch("materials", "materials");
       toggleMatch("progress", "progress");
-      
+
       // 6. Screen bounds
       if (transcript.includes("fullscreen") || transcript.includes("full screen")) {
         setIsFullscreen(true);
@@ -963,7 +1260,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
         setIsFullscreen(false);
       }
     };
-    
+
     recognition.start();
   };
 
@@ -980,10 +1277,10 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
 
   return (
     <div style={containerStyle}>
-      
+
       {/* UNIFIED TOP BAR: HUD + View Options + Controls */}
       <div className="glass-panel" style={{ position: "absolute", top: 12, left: 12, right: 12, zIndex: 10, padding: "0.5rem 1rem", display: "flex", justifyContent: "space-between", alignItems: "center", borderRadius: "16px" }}>
-        
+
         {/* Left: HUD + Tabs */}
         <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -993,7 +1290,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
               <span style={{ fontSize: "0.95rem", fontWeight: 700 }}>HUD</span>
             </div>
           </div>
-          
+
           <div style={{ display: "flex", gap: "6px", marginLeft: "12px" }}>
             {[
               { id: "bim", label: "3D BIM Model" },
@@ -1016,8 +1313,8 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Floor:</span>
-            <select 
-              value={activeFloor} 
+            <select
+              value={activeFloor}
               onChange={(e) => setActiveFloor(e.target.value)}
               className="sidebar-btn" style={{ padding: "0 0.5rem", fontSize: "0.85rem", color: "var(--text-primary)" }}
             >
@@ -1027,8 +1324,51 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
               ))}
             </select>
           </div>
+          <button 
+            onClick={() => exportSceneFn && exportSceneFn()} 
+            className="btn btn-primary" 
+            style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem", gap: "6px" }}
+            title="Download the 3D model as a .glb file"
+          >
+            <Download size={14} /> Export 3D
+          </button>
         </div>
       </div>
+
+      {/* STAGE 1: Block Model Action Button */}
+      {generationStage === "block" && (
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 20 }}>
+          <button 
+            onClick={handleGenerateRealistic}
+            className="btn btn-gradient"
+            style={{ padding: "1.2rem 2.5rem", fontSize: "1.2rem", boxShadow: "0 10px 40px rgba(99, 102, 241, 0.6)", display: "flex", gap: "10px", alignItems: "center" }}
+          >
+            <Zap size={24} /> Generate Realistic Building (AI)
+          </button>
+        </div>
+      )}
+
+      {/* STAGE 2: AI Loading Overlay */}
+      {generationStage === "generating" && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 30,
+          background: "rgba(9, 9, 11, 0.8)", backdropFilter: "blur(10px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center"
+        }}>
+          <div className="animate-pulse" style={{ marginBottom: "2rem" }}>
+            <Box size={64} className="text-cyan" />
+          </div>
+          <h2 style={{ fontSize: "2rem", color: "white", marginBottom: "1rem", letterSpacing: "1px" }}>AeroTwin AI Generator</h2>
+          <div style={{ 
+            fontSize: "1.2rem", color: "var(--accent-cyan)", fontFamily: "monospace",
+            background: "rgba(0,0,0,0.5)", padding: "1rem 2rem", borderRadius: "8px",
+            border: "1px solid var(--accent-cyan)"
+          }}>
+            {generationProgressText}
+            <span className="animate-pulse">_</span>
+          </div>
+        </div>
+      )}
 
       {/* Voice Status Alert Notification Banner */}
       {voiceNotification && (
@@ -1045,7 +1385,7 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
       {/* Floating Mic Button */}
       <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 12 }}>
         <button onClick={startVoiceCommand} className={`btn ${isListening ? "animate-pulse" : ""}`} style={{
-          width: 56, height: 56, borderRadius: 28, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", 
+          width: 56, height: 56, borderRadius: 28, background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
           display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
           border: "2px solid rgba(255,255,255,0.2)",
           boxShadow: "0 0 20px rgba(99, 102, 241, 0.5)", cursor: "pointer", color: "white"
@@ -1054,22 +1394,118 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
         </button>
       </div>
 
-      {/* Bottom Overlay: 12 Layers switches */}
-      <div className="glass-panel" style={{ position: "absolute", bottom: 12, left: 12, right: 90, zIndex: 10, padding: "1rem", display: "flex", flexDirection: "column", gap: "12px", borderRadius: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.9rem", color: "var(--text-primary)", fontWeight: "600" }}>
-          <Layers size={18} className="text-cyan" /> 12 Live Layer Switches:
+      {/* Advanced Professional Control Toolbar (Bottom Docked) */}
+      <div className="glass-panel" style={{ 
+        position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10, 
+        padding: "1rem 2rem", display: "flex", justifyContent: "space-between", 
+        background: "rgba(9, 9, 11, 0.95)", borderTop: "1px solid var(--border)",
+        backdropFilter: "blur(20px)"
+      }}>
+        
+        {/* RENDER MODES */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, borderRight: "1px solid var(--border)", paddingRight: "1.5rem" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "1px" }}>RENDER MODES</span>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            {[
+              { id: "Realistic", icon: <Box size={24} strokeWidth={1.5} /> },
+              { id: "Clay Render", icon: <Droplet size={24} strokeWidth={1.5} /> },
+              { id: "Wireframe", icon: <Grid size={24} strokeWidth={1.5} /> },
+              { id: "X-Ray", icon: <Eye size={24} strokeWidth={1.5} /> },
+              { id: "Hidden Line", icon: <EyeOff size={24} strokeWidth={1.5} /> }
+            ].map(mode => (
+              <div 
+                key={mode.id} 
+                onClick={() => { setActiveRenderMode(mode.id as any); setActiveAnalysisMode(null); }}
+                style={{ 
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer",
+                  color: activeRenderMode === mode.id && !activeAnalysisMode ? "var(--accent-cyan)" : "var(--text-muted)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ 
+                  padding: "8px", borderRadius: "8px", 
+                  background: activeRenderMode === mode.id && !activeAnalysisMode ? "rgba(56, 189, 248, 0.1)" : "transparent" 
+                }}>
+                  {mode.icon}
+                </div>
+                <span style={{ fontSize: "0.7rem", fontWeight: activeRenderMode === mode.id && !activeAnalysisMode ? 600 : 400 }}>{mode.id}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
-          {Object.entries(activeLayers).map(([layer, active]) => (
-            <button
-              key={layer}
-              onClick={() => toggleLayer(layer)}
-              className={`filter-chip ${active ? "active-" + layer.toLowerCase() : ""}`}
-            >
-              {layer.toUpperCase()}
-            </button>
-          ))}
+
+        {/* VIEW MODES */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, paddingLeft: "1.5rem", borderRight: "1px solid var(--border)", paddingRight: "1.5rem" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "1px" }}>VIEW MODES</span>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            {[
+              { id: "Perspective", icon: <Move3d size={24} strokeWidth={1.5} /> },
+              { id: "Top View", icon: <Maximize size={24} strokeWidth={1.5} /> },
+              { id: "Front View", icon: <Box size={24} strokeWidth={1.5} /> },
+              { id: "Left View", icon: <Compass size={24} strokeWidth={1.5} /> },
+              { id: "Section View", icon: <Layers size={24} strokeWidth={1.5} /> }
+            ].map(mode => (
+              <div 
+                key={mode.id} 
+                onClick={() => { 
+                  setActiveViewMode(mode.id as any); 
+                  if (mode.id === "Perspective") setCameraMode("orbit");
+                  if (mode.id === "Top View") setCameraMode("floorplan");
+                  if (mode.id === "Section View") setCameraMode("dollhouse");
+                }}
+                style={{ 
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer",
+                  color: activeViewMode === mode.id ? "var(--accent-purple)" : "var(--text-muted)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ 
+                  padding: "8px", borderRadius: "8px", 
+                  background: activeViewMode === mode.id ? "rgba(139, 92, 246, 0.1)" : "transparent" 
+                }}>
+                  {mode.icon}
+                </div>
+                <span style={{ fontSize: "0.7rem", fontWeight: activeViewMode === mode.id ? 600 : 400 }}>{mode.id}</span>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* ANALYSIS MODES */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, paddingLeft: "1.5rem" }}>
+          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "1px" }}>ANALYSIS MODES</span>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            {[
+              { id: "Structure", icon: <Grid size={24} strokeWidth={1.5} /> },
+              { id: "MEP Systems", icon: <Activity size={24} strokeWidth={1.5} /> },
+              { id: "Energy", icon: <Zap size={24} strokeWidth={1.5} /> },
+              { id: "Lighting", icon: <Sun size={24} strokeWidth={1.5} /> },
+              { id: "Acoustic", icon: <Volume2 size={24} strokeWidth={1.5} /> }
+            ].map(mode => (
+              <div 
+                key={mode.id} 
+                onClick={() => { 
+                  setActiveAnalysisMode(activeAnalysisMode === mode.id ? null : mode.id as any);
+                  setLocalVisualMode("bim");
+                }}
+                style={{ 
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", cursor: "pointer",
+                  color: activeAnalysisMode === mode.id ? "var(--accent-green)" : "var(--text-muted)",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                <div style={{ 
+                  padding: "8px", borderRadius: "8px", 
+                  background: activeAnalysisMode === mode.id ? "rgba(34, 197, 94, 0.1)" : "transparent" 
+                }}>
+                  {mode.icon}
+                </div>
+                <span style={{ fontSize: "0.7rem", fontWeight: activeAnalysisMode === mode.id ? 600 : 400 }}>{mode.id}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
 
       {/* Camera Mode controls */}
@@ -1098,10 +1534,10 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
 
         {/* Room Jump dropdown */}
         {cameraMode === "room" && (
-          <select 
-            value={localFocusedRoom} 
+          <select
+            value={localFocusedRoom}
             onChange={(e) => setLocalFocusedRoom(e.target.value)}
-            className="form-input" 
+            className="form-input"
             style={{ fontSize: "0.75rem", padding: "0.4rem", marginTop: "8px" }}
           >
             <option value="living">Living Room</option>
@@ -1111,13 +1547,13 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
           </select>
         )}
 
-        <button 
+        <button
           onClick={() => {
             setIsCinematic(false);
             setSunHour(8); // Start morning
             setTimeout(() => { setIsCinematic(true); setCameraMode("orbit"); }, 100);
-          }} 
-          className="btn btn-primary" 
+          }}
+          className="btn btn-primary"
           style={{ marginTop: "8px", padding: "0.5rem", fontSize: "0.8rem", borderRadius: "8px", width: "100%", justifyContent: "center" }}
         >
           <Play size={14} /> Play Cinematic Build
@@ -1129,11 +1565,11 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
             <span>Time of Day</span>
             <span>{sunHour}:00</span>
           </div>
-          <input 
-            type="range" 
-            min="6" max="22" 
-            value={sunHour} 
-            onChange={(e) => setSunHour(parseInt(e.target.value))} 
+          <input
+            type="range"
+            min="6" max="22"
+            value={sunHour}
+            onChange={(e) => setSunHour(parseInt(e.target.value))}
             style={{ width: "100%", accentColor: "var(--accent-cyan)" }}
           />
         </div>
@@ -1141,88 +1577,102 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
 
       <Canvas camera={{ position: [camDist, formData.num_floors * 4 + 10, camDist], fov: 40 }} shadows dpr={dpr}>
         <PerformanceMonitor onIncline={() => setDpr(1.5)} onDecline={() => setDpr(1)} />
+        <SceneExporter setExportFn={setExportSceneFn} />
         
+        {/* STAGE 3: Realistic HDRI Environment & Gaussian Splatting Context */}
+        {generationStage === "realistic" && (
+          <group>
+            <Environment preset="city" background={false} blur={0.8} />
+            {/* Real-world site scan Gaussian Splat embedded underneath the building */}
+            <Splat src="https://huggingface.co/datasets/dylanebert/3d-splats/resolve/main/garden.splat" position={[0, -0.5, 0]} rotation={[0, 0, 0]} scale={0.8} />
+          </group>
+        )}
+
         {/* Dynamic Sunlight based on Time of Day */}
         <ambientLight intensity={sunLight.ambient} color={sunHour >= 19 ? "#020617" : "#ffffff"} />
-        <directionalLight 
-          position={sunLight.pos} 
-          intensity={sunLight.intensity} 
-          color={sunLight.color} 
-          castShadow 
+        <directionalLight
+          position={sunLight.pos}
+          intensity={sunLight.intensity}
+          color={sunLight.color}
+          castShadow
           shadow-bias={-0.0005}
-          shadow-mapSize-width={2048} 
-          shadow-mapSize-height={2048} 
+          shadow-mapSize-width={2048}
+          shadow-mapSize-height={2048}
         />
 
-        <CameraDirector 
-          cameraMode={cameraMode} 
-          focusedRoom={localFocusedRoom} 
-          numFloors={formData.num_floors} 
-          bWidth={bWidth} 
-          bLength={bLength} 
-          camDist={camDist} 
+        <CameraDirector
+          cameraMode={cameraMode}
+          focusedRoom={localFocusedRoom}
+          numFloors={formData.num_floors}
+          bWidth={bWidth}
+          bLength={bLength}
+          camDist={camDist}
         />
 
         <Suspense fallback={
           <ProceduralBuilding formData={formData} isPossible={isPossible} viewMode={viewMode} promptParams={{ ...promptParams, isCinematic } as any} activeFloor={activeFloor} />
         }>
           {localVisualMode === "bim" && (
-            promptParams?.glb_url ? (
+            promptParams?.ifc_url ? (
               <AnimatedAssembly isCinematic={isCinematic} delay={1.0}>
-                <GLBModel 
-                  url={promptParams.glb_url} 
-                  activeLayers={activeLayers} 
-                  viewMode={viewMode} 
-                  dollhouseMode={cameraMode === "dollhouse"} 
+                <BIMViewer url={promptParams.ifc_url} />
+              </AnimatedAssembly>
+            ) : promptParams?.glb_url ? (
+              <AnimatedAssembly isCinematic={isCinematic} delay={1.0}>
+                <GLBModel
+                  url={promptParams.glb_url}
+                  activeLayers={activeLayers}
+                  viewMode={viewMode}
+                  dollhouseMode={cameraMode === "dollhouse"}
                   sunHour={sunHour}
                   activeFloor={activeFloor}
                   numFloors={formData.num_floors}
                 />
               </AnimatedAssembly>
             ) : (
-              <ProceduralBuilding formData={formData} isPossible={isPossible} viewMode={viewMode} promptParams={{ ...promptParams, sunHour, activeLayers, isCinematic } as any} activeFloor={activeFloor} />
+              <ProceduralBuilding formData={formData} isPossible={isPossible} viewMode={viewMode} promptParams={{ ...promptParams, sunHour, activeLayers, isCinematic, activeRenderMode, activeAnalysisMode } as any} activeFloor={activeFloor} />
             )
           )}
 
           {localVisualMode === "splat" && (
-             <group>
-               <Splat src="https://huggingface.co/datasets/dylanebert/3d-splats/resolve/main/shoe_0.splat" position={[0, 1, 0]} rotation={[0, Math.PI, 0]} scale={2} />
-               <Html position={[0, 3, 0]} center>
-                 <div className="bg-purple-900/80 border border-purple-500/50 px-3 py-1 rounded text-purple-300 text-xs font-bold backdrop-blur-sm flex items-center gap-2">
-                   <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
-                   Higgsfield MCP AI Render
-                 </div>
-               </Html>
-             </group>
+            <group>
+              <Splat src="https://huggingface.co/datasets/dylanebert/3d-splats/resolve/main/garden.splat" position={[0, 1, 0]} rotation={[0, 0, 0]} scale={0.5} />
+              <Html position={[0, 5, 0]} center>
+                <div className="bg-purple-900/80 border border-purple-500/50 px-3 py-1 rounded text-purple-300 text-xs font-bold backdrop-blur-sm flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse"></span>
+                  AI 3D Splatting Render (Garden Site)
+                </div>
+              </Html>
+            </group>
           )}
 
           {localVisualMode === "real" && (
-             <group>
-               <Environment background preset="park" blur={0.01} />
-               <Html position={[0, 0, -5]} center>
-                 <div className="bg-green-900/80 border border-green-500/50 px-3 py-1 rounded text-green-300 text-xs font-bold backdrop-blur-sm flex items-center gap-2">
-                   <Video size={14} /> Site Camera 360° View
-                 </div>
-               </Html>
-             </group>
+            <group>
+              <Environment background preset="park" blur={0.01} />
+              <Html position={[0, 0, -5]} center>
+                <div className="bg-green-900/80 border border-green-500/50 px-3 py-1 rounded text-green-300 text-xs font-bold backdrop-blur-sm flex items-center gap-2">
+                  <Video size={14} /> Site Camera 360° View
+                </div>
+              </Html>
+            </group>
           )}
 
           {localVisualMode === "diagram" && (
-             <group>
-                <ProceduralBuilding formData={formData} isPossible={isPossible} viewMode="structural" promptParams={{ ...promptParams, sunHour, activeLayers, isCinematic } as any} activeFloor={activeFloor} />
-             </group>
+            <group>
+              <ProceduralBuilding formData={formData} isPossible={isPossible} viewMode="structural" promptParams={{ ...promptParams, sunHour, activeLayers, isCinematic } as any} activeFloor={activeFloor} />
+            </group>
           )}
         </Suspense>
-        
+
         {/* Real-time Equipment Twin */}
         <EquipmentTwin3D isCinematic={isCinematic} activeLayers={activeLayers} />
-        
+
         <BakeShadows />
 
         {cameraMode === "orbit" && (
           <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} maxPolarAngle={Math.PI / 2 - 0.05} />
         )}
-        
+
         <Environment preset={sunHour >= 19 ? "night" : "city"} />
         <ContactShadows position={[0, -0.05, 0]} opacity={0.65} scale={85} blur={2.2} far={15} />
 
@@ -1238,7 +1688,8 @@ export default function Feasibility3DViewer({ formData, analysisResult, viewMode
         </GizmoHelper>
       </Canvas>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }

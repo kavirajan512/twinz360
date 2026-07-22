@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { CheckCircle, XCircle, AlertTriangle, Building, Calculator, Download, Loader2, Play, Ruler, ArrowRight, ArrowLeft, BarChart3, Wrench, Calendar, Info, Layers, TrendingUp } from "lucide-react";
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart as RechartsBarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import Feasibility3DViewer from "./Feasibility3DViewer";
+import LuxuryVillaViewer from "./LuxuryVillaViewer";
 import Blender3DViewer from "./Blender3DViewer";
 import ConstructionTimelapse from "./ConstructionTimelapse";
 
@@ -13,20 +14,20 @@ const DynamicLocationPickerMap = dynamic(() => import("./LocationPickerMap"), { 
 export default function FeasibilityDashboard({ userId }: { userId: number }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
-  
+
   // Navigation Steps in Form Wizard
   const [formStep, setFormStep] = useState(1);
   const [viewMode, setViewMode] = useState<"architectural" | "structural" | "furnished">("architectural");
-  const [viewerTab, setViewerTab] = useState<"3d" | "timelapse" | "blender">("timelapse");
+  const [viewerTab, setViewerTab] = useState<"3d" | "timelapse" | "blender">("3d");
   const [activeTab, setActiveTab] = useState<"feasibility" | "layout" | "structural" | "boq" | "cost" | "timeline" | "risks" | "sustainability">("feasibility");
-  
+
   // Provision Status
   const [provisioning, setProvisioning] = useState(false);
   const [provisionedProject, setProvisionedProject] = useState<number | null>(null);
-  
+
   // Camera room jump target
   const [focusedRoom, setFocusedRoom] = useState<string | undefined>(undefined);
-  
+
   // UE5 simulated streaming modal
   const [showUE5Stream, setShowUE5Stream] = useState(false);
   const [ue5Loading, setUe5Loading] = useState(true);
@@ -95,7 +96,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
     bank_name: "HDFC",
     ai_prompt: ""
   });
-  
+
   // UX State for UI simulations
   const [simulatingOCR, setSimulatingOCR] = useState(false);
   const [simulatingAI, setSimulatingAI] = useState(false);
@@ -125,19 +126,22 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
       if (res.ok) {
         const data = await res.json();
         const parsedReport = {
-          ...data.report,
-          suggestions: JSON.parse(data.report.suggestions_json),
-          workers: JSON.parse(data.report.worker_estimate_json),
-          materials: JSON.parse(data.report.material_estimate_json),
-          costs: JSON.parse(data.report.cost_estimate_json),
-          duration: JSON.parse(data.report.duration_estimate_json),
-          three_d_params: JSON.parse(data.report.three_d_params_json),
-          floor_plan: JSON.parse(data.report.floor_plan_json),
-          structural_plan: JSON.parse(data.report.structural_plan_json),
-          boq: JSON.parse(data.report.boq_json),
-          timeline: jsonParseSafe(data.report.timeline_json),
-          cost_breakdown: jsonParseSafe(data.report.cost_breakdown_json),
-          directives: jsonParseSafe(data.report.directives_json || "[]")
+          ...data,
+          suggestions: JSON.parse(data.suggestions_json),
+          workers: JSON.parse(data.worker_estimate_json),
+          materials: JSON.parse(data.material_estimate_json),
+          costs: JSON.parse(data.cost_estimate_json),
+          duration: JSON.parse(data.duration_estimate_json),
+          three_d_params: {
+            ...JSON.parse(data.three_d_params_json),
+            ifc_url: "/sample.ifc"
+          },
+          floor_plan: JSON.parse(data.floor_plan_json),
+          structural_plan: JSON.parse(data.structural_plan_json),
+          boq: JSON.parse(data.boq_json),
+          timeline: jsonParseSafe(data.timeline_json),
+          cost_breakdown: jsonParseSafe(data.cost_breakdown_json),
+          directives: jsonParseSafe(data.directives_json || "[]")
         };
         setResult(parsedReport);
         setFormStep(7); // Go to results view (Step 7)
@@ -146,7 +150,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
       console.warn("Backend unavailable, using simulated engineering analysis...", err);
       // Simulate 1.5s delay
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       const isSoftClay = formData.soil_type.includes("Soft");
       const isHighFloors = formData.num_floors >= 4;
       const isBudgetTight = formData.max_budget / (formData.num_floors || 1) < 2000000;
@@ -179,7 +183,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
           { subject: 'Utilities', score: utilityScore },
           { subject: 'Accessibility', score: accessibilityScore }
         ],
-        reason: overallScore >= 60 
+        reason: overallScore >= 60
           ? "Zoning approved. Setbacks, FAR, accessibility, and environmental requirements verified against municipal master plans."
           : "Feasibility risk detected. Plot boundaries, high floor counts relative to road width, or soft clay soil conditions restrict building potential.",
         suggestions: [
@@ -201,6 +205,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
         duration: { "Foundation": "3 weeks", "Superstructure": "8 weeks", "Finishing": "6 weeks" },
         three_d_params: {
           glb_url: "",
+          ifc_url: "/sample.ifc",
           style: formData.style_selection,
           force_flat_roof: true,
           material_override: formData.material_preference,
@@ -271,7 +276,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
     }
     setLoading(false);
   };
-  
+
   const handleOCRUpload = () => {
     setSimulatingOCR(true);
     setTimeout(() => {
@@ -340,10 +345,10 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1.1fr 1fr", gap: "1.5rem" }}>
-      
+
       {/* LEFT COLUMN: Input Form Wizard / Detailed AI Analysis */}
       <div className="glass-panel" style={{ padding: "1.5rem", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        
+
         {/* Step 1: Land Details */}
         {formStep === 1 && (
           <div>
@@ -351,7 +356,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               <Ruler size={24} />
               <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", margin: 0 }}>Step 1: Land & Site Details</h2>
             </div>
-            
+
             <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
               <h3 style={{ fontSize: "1rem", color: "var(--text-secondary)", borderBottom: "1px solid #333", paddingBottom: "0.5rem" }}>Basic Info</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
@@ -380,13 +385,13 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               </div>
 
               {/* Dynamic Interactive GPS Map */}
-              <DynamicLocationPickerMap 
-                gpsLocation={formData.gps_location} 
+              <DynamicLocationPickerMap
+                gpsLocation={formData.gps_location}
                 addressString={`${formData.village}, ${formData.district}, ${formData.state}, ${formData.pin_code}`}
-                onChange={(loc) => setFormData(prev => ({ ...prev, gps_location: loc }))} 
+                onChange={(loc) => setFormData(prev => ({ ...prev, gps_location: loc }))}
               />
             </div>
-            
+
             <div style={{ marginTop: "2rem", display: "flex", justifyContent: "flex-end" }}>
               <button className="btn btn-primary" style={{ padding: "0.6rem 1.2rem", display: "flex", gap: "0.5rem" }} onClick={() => setFormStep(2)}>
                 Next: Legal Documents <ArrowRight size={16} />
@@ -406,7 +411,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               <Info size={40} style={{ color: "var(--accent-cyan)", margin: "0 auto 1rem auto" }} />
               <h3 style={{ marginBottom: "1rem" }}>Upload Property Documents (Patta, Sale Deed, EC)</h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "1.5rem" }}>Our AI will automatically extract ownership, survey numbers, and legal risks using OCR.</p>
-              
+
               {!ocrComplete ? (
                 <button className="btn btn-primary" onClick={handleOCRUpload} disabled={simulatingOCR}>
                   {simulatingOCR ? <><Loader2 size={16} className="animate-spin" /> Extracting Data via AI OCR...</> : "Upload & Analyze PDFs"}
@@ -459,7 +464,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               <Layers size={24} />
               <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", margin: 0 }}>Step 4: Customer Requirements</h2>
             </div>
-            
+
             <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div><label className="form-label">Building Type</label><select name="building_type" value={formData.building_type} onChange={handleChange} className="form-input"><option>Villa</option><option>Apartment</option><option>Commercial</option></select></div>
@@ -486,7 +491,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                 <div><label className="form-label">Material Pref</label><select name="material_preference" value={formData.material_preference} onChange={handleChange} className="form-input"><option>Concrete</option><option>Brick</option><option>Glass</option></select></div>
               </div>
             </div>
-            
+
             <div style={{ marginTop: "2rem", display: "flex", justifyContent: "space-between" }}>
               <button className="btn btn-secondary" onClick={() => setFormStep(3)}><ArrowLeft size={16} /> Back</button>
               <button className="btn btn-primary" onClick={() => setFormStep(5)}>Next: Budget & Financing <ArrowRight size={16} /></button>
@@ -501,7 +506,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               <BarChart3 size={24} />
               <h2 style={{ fontSize: "1.25rem", fontWeight: "bold", margin: 0 }}>Step 5: Budget & Timeline</h2>
             </div>
-            
+
             <form onSubmit={startDeepAIAnalysis} style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
                 <div><label className="form-label">Minimum Budget (₹)</label><input type="number" name="min_budget" value={formData.min_budget} onChange={handleChange} className="form-input" /></div>
@@ -542,7 +547,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
         {/* Step 7: Upgraded Design & AI Analysis Workflow Output tabs */}
         {formStep === 7 && result && (
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            
+
             {/* Header with quick indicators */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
               <div>
@@ -551,8 +556,8 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                   AeroTwin Comprehensive Analysis: {result.is_possible ? "Feasible" : "Failed Checks"}
                 </h2>
                 <div style={{ display: "flex", gap: "1rem", marginTop: "0.5rem" }}>
-                   <span style={{ padding: "4px 8px", background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>Legal Compliance: 98%</span>
-                   <span style={{ padding: "4px 8px", background: "rgba(14, 165, 233, 0.1)", color: "#0ea5e9", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>Constr. Risk: Low</span>
+                  <span style={{ padding: "4px 8px", background: "rgba(16, 185, 129, 0.1)", color: "#10b981", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>Legal Compliance: 98%</span>
+                  <span style={{ padding: "4px 8px", background: "rgba(14, 165, 233, 0.1)", color: "#0ea5e9", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "bold" }}>Constr. Risk: Low</span>
                 </div>
                 <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginTop: "0.5rem" }}>{result.reason}</p>
               </div>
@@ -595,7 +600,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                 { id: "risks", label: "AI Risks" },
                 { id: "sustainability", label: "Sustainability" }
               ].map(tab => (
-                <button 
+                <button
                   key={tab.id}
                   style={{
                     padding: "0.5rem 1rem", fontSize: "0.8rem", background: "none", border: "none",
@@ -613,12 +618,12 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
 
             {/* Tab Contents */}
             <div style={{ flex: 1, overflowY: "auto", paddingRight: "0.3rem", minHeight: "360px" }}>
-              
+
               {/* TAB: FEASIBILITY SUMMARY */}
               {activeTab === "feasibility" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "1.5rem", alignItems: "center" }}>
-                    
+
                     {/* Overall Score Dial */}
                     <div style={{ display: "flex", gap: "1rem", alignItems: "center", background: "rgba(255, 255, 255, 0.02)", padding: "1rem", borderRadius: "10px", border: "1px solid var(--border)" }}>
                       <div style={{
@@ -798,7 +803,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                     <BarChart3 size={16} />
                     <span style={{ fontWeight: "bold" }}>AI Cost Breakdown Estimation</span>
                   </div>
-                  
+
                   <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "1rem", alignItems: "center" }}>
                     <table className="spec-table">
                       <tbody>
@@ -835,7 +840,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                     <Calendar size={16} />
                     <span style={{ fontWeight: "bold" }}>4D Construction Schedule (Projected)</span>
                   </div>
-                  
+
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.8rem", paddingRight: "8px" }}>
                     {Object.entries(result.timeline).filter(([phase]) => phase !== "Total Duration").map(([phase, duration]: any, idx) => (
                       <div key={phase} style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -875,7 +880,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                       const isHigh = risk.risk.toLowerCase().includes("high");
                       const color = isHigh ? "#ef4444" : "#f59e0b";
                       const bg = isHigh ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)";
-                      
+
                       return (
                         <div key={i} style={{ background: bg, borderLeft: `3px solid ${color}`, padding: "0.8rem", borderRadius: "4px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.3rem" }}>
@@ -930,16 +935,16 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               <button type="button" className="btn btn-secondary" style={{ padding: "0.5rem 1rem", fontSize: "0.8rem" }} onClick={() => setFormStep(2)}>
                 Back to specs
               </button>
-              
+
               {provisionedProject ? (
                 <div style={{ color: "var(--accent-emerald)", fontSize: "0.8rem", fontWeight: "bold", display: "flex", alignItems: "center", gap: "4px" }}>
                   <CheckCircle size={16} /> Project Registered! Switch workspace to view Twin.
                 </div>
               ) : (
-                <button 
-                  type="button" 
-                  className="btn btn-primary" 
-                  style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", display: "flex", gap: "0.4rem" }} 
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  style={{ padding: "0.5rem 1rem", fontSize: "0.8rem", display: "flex", gap: "0.4rem" }}
                   disabled={!result.is_possible || provisioning}
                   onClick={handleProvisionProject}
                 >
@@ -956,7 +961,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
 
       {/* RIGHT COLUMN: Realtime Interactive 3D design & Mode Toggles */}
       <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
-        
+
         {/* Viewer Mode Tabs */}
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button
@@ -973,17 +978,6 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
           >
             🏠 Full 3D Viewer
           </button>
-          <button
-            className={viewerTab === "blender" ? "btn btn-primary" : "btn btn-secondary"}
-            style={{ 
-              padding: "0.4rem 0.9rem", fontSize: "0.78rem", display: "flex", gap: "5px", alignItems: "center",
-              borderColor: viewerTab === "blender" ? "#f57c00" : undefined, 
-              backgroundColor: viewerTab === "blender" ? "#f57c00" : undefined 
-            }}
-            onClick={() => setViewerTab("blender")}
-          >
-            🧡 Blender Workspace
-          </button>
         </div>
 
         {/* 3D Visualizer Canvas container */}
@@ -992,7 +986,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
             <ConstructionTimelapse formData={formData} analysisResult={result} />
           )}
           {viewerTab === "3d" && (
-            <Feasibility3DViewer formData={formData} analysisResult={result} viewMode={viewMode} focusedRoom={focusedRoom} onViewModeChange={setViewMode} />
+            <LuxuryVillaViewer formData={formData} />
           )}
           {viewerTab === "blender" && (
             <Blender3DViewer formData={formData} analysisResult={result} viewMode={viewMode} focusedRoom={focusedRoom} onViewModeChange={setViewMode} />
@@ -1031,7 +1025,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
 
       {/* Unreal Engine 5 Simulated Pixel Streaming Overlay Modal */}
       {showUE5Stream && (
-        <div 
+        <div
           onClick={() => setShowUE5Stream(false)} // Click backdrop to exit modal
           style={{
             position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
@@ -1046,7 +1040,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
               <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Compiling photorealistic shadows, PBR textures, and terrain assets...</div>
             </div>
           ) : (
-            <div 
+            <div
               onClick={(e) => e.stopPropagation()} // Stop click propagation inside the modal frame
               style={{ width: "90%", height: "85%", background: "#05050a", border: "1px solid var(--border-focus)", borderRadius: "12px", overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}
             >
@@ -1056,7 +1050,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                   <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--accent-emerald)", animation: "pulse 2s infinite" }} />
                   <span style={{ fontSize: "0.85rem", fontWeight: "bold", color: "#fff" }}>UE5 Live Pixel Streaming (1080p, 60fps)</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setShowUE5Stream(false)}
                   style={{
                     padding: "0.3rem 0.6rem", background: "#ef4444", border: "none", color: "#fff",
@@ -1073,7 +1067,7 @@ export default function FeasibilityDashboard({ userId }: { userId: number }) {
                 <div style={{ position: "absolute", bottom: 20, left: 20, display: "flex", gap: "8px", background: "rgba(0,0,0,0.6)", padding: "0.5rem", borderRadius: "6px" }}>
                   <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Use W A S D keys or Drag Mouse to walk through the {formData.style_selection} Digital Twin.</span>
                 </div>
-                
+
                 {/* Visualizer Mockup */}
                 <div style={{ textAlign: "center", color: "#fff" }}>
                   <h2 style={{ fontSize: "2rem", fontWeight: "bold", textShadow: "0 0 10px rgba(6,182,212,0.5)", marginBottom: "0.5rem" }}>

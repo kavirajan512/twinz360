@@ -285,7 +285,7 @@ export default function AeroTwinDashboard() {
             </div>
           ) : activeTab === 'bim' ? (
             <div style={{ height: "100%", padding: "1rem" }}>
-              <BIMViewer />
+              <BIMViewer url="" />
             </div>
           ) : activeTab === 'reports' ? (
             <div style={{ height: "100%", overflowY: "auto", padding: "1rem" }}>
